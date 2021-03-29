@@ -383,15 +383,12 @@ var intf_post_xfmr PostXfmrFunc = func(inParams XfmrParams) (map[string]map[stri
 
 var intf_pre_xfmr PreXfmrFunc = func(inParams XfmrParams) (error) {
     var err error
-    if inParams.oper == DELETE || inParams.oper == REPLACE {
+    if inParams.oper == DELETE {
         requestUriPath, _ := getYangPathFromUri(inParams.requestUri)
         if log.V(3) {
             log.Info("intf_pre_xfmr:- Request URI path = ", requestUriPath)
         }
         errStr := "Delete operation not supported for this path - "
-        if inParams.oper == REPLACE {
-            errStr = "Replace operation not supported for this path - "
-        }
         switch requestUriPath {
             case "/openconfig-interfaces:interfaces":
                 errStr += requestUriPath
@@ -567,6 +564,17 @@ func performIfNameKeyXfmrOp(inParams *XfmrParams, requestUriPath *string, ifName
     case CREATE:
 	fallthrough
     case UPDATE,REPLACE:
+
+        if (inParams.oper == REPLACE) {
+            if *requestUriPath == "/openconfig-interfaces:interfaces" || *requestUriPath == "/openconfig-interfaces:interfaces/interface" {
+                if (validateIntfExists(inParams.d, IntfTypeTblMap[ifType].cfgDb.portTN, *ifName) == nil) {
+                    //Interface exists, return error for replace at interfaces or interfaces/interface level
+                    errStr := "Replace operation not supported for this path - " + *requestUriPath
+                    return tlerr.InvalidArgsError{Format:errStr}
+                }
+            }
+        }
+
         if(ifType == IntfTypeVlan){
 	    if (validateIntfExists(inParams.d, IntfTypeTblMap[IntfTypeVlan].cfgDb.portTN, *ifName)!=nil) {
                 err = enableStpOnVlanCreation(inParams, ifName)
